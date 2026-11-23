@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>TechTrack</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+:root{--bg:#eaf0f2;--surf:#fff;--ink:#14262e;--mut:#5b6f78;--line:#cfdadf;--teal:#0f6b6b;--in:#1e8e5a;--out:#c2412d;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e1a1f;--surf:#16262d;--ink:#e6eef1;--mut:#93a8b1;--line:#27404a;--teal:#4fc0c0;--in:#3fbf82;--out:#ef6b57}}
+:root[data-theme="dark"]{--bg:#0e1a1f;--surf:#16262d;--ink:#e6eef1;--mut:#93a8b1;--line:#27404a;--teal:#4fc0c0;--in:#3fbf82;--out:#ef6b57}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Barlow,system-ui,sans-serif}
+.wrap{max-width:980px;margin:0 auto;padding:16px}
+h1,h2,.big{font-family:"Barlow Condensed",Impact,sans-serif;margin:0}
+h1{font-size:30px}h2{font-size:22px;margin-bottom:8px}
+header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:14px}
+.who{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+select,input,button{font:inherit;color:inherit}
+select,input{background:var(--surf);border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0;max-width:100%}
+button{cursor:pointer;border:1px solid var(--line);background:var(--surf);border-radius:8px;padding:8px 12px}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid var(--teal);outline-offset:2px}
+nav{display:flex;gap:4px;border-bottom:2px solid var(--line);margin-bottom:14px;overflow-x:auto}
+nav button{border:0;border-radius:8px 8px 0 0;background:none;color:var(--mut);font-weight:600;white-space:nowrap}
+nav button[aria-selected="true"]{color:var(--ink);box-shadow:inset 0 -3px var(--teal)}
+.panel{background:var(--surf);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.kv{font-size:14px}.kv b{display:block;color:var(--mut);font-weight:600;font-size:13px}
+.big{font-size:60px;line-height:1.05;font-variant-numeric:tabular-nums;margin:6px 0}
+.punch{width:100%;padding:18px;font:700 26px "Barlow Condensed",Impact,sans-serif;border:0;color:#fff;background:var(--in);border-radius:12px}
+.punch.out{background:var(--out)}.punch:disabled{opacity:.6}
+.mut{color:var(--mut)}.gps{margin-top:10px;font-size:14px;color:var(--mut);font-variant-numeric:tabular-nums}.err{color:var(--out)}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle}
+th{color:var(--mut);font-weight:600}
+.tag{font-weight:600}.in{color:var(--in)}.out{color:var(--out)}
+.stat{font:700 36px "Barlow Condensed",Impact,sans-serif}
+svg{width:100%;height:auto;display:block;background:var(--bg);border-radius:8px}
+.thumb{width:44px;height:44px;object-fit:cover;border-radius:6px;cursor:pointer;border:1px solid var(--line)}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:8px;margin-top:8px}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+a{color:var(--teal)}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.8);display:none;align-items:center;justify-content:center;padding:16px;z-index:20}
+#modal img{max-width:100%;max-height:100%;border-radius:8px}
+
+.err{color:var(--out)}.form input,.form select{width:100%}textarea{width:100%;background:var(--surf);border:1px solid var(--line);border-radius:8px;padding:8px;font:inherit;color:inherit}
+.pill{display:inline-block;padding:1px 8px;border-radius:99px;border:1px solid var(--line);font-size:13px}</style></head><body>
+<div class="wrap"><header><h1>TechTrack</h1><div class="who" id="who"></div></header><div id="app"></div></div>
+<div id="modal" role="dialog" aria-label="Selfie"><img id="mimg" alt="Selfie with location stamp"></div>
+<input type="file" id="cam" accept="image/*" capture="user" style="display:none">
+<script src="config.js"></script><script src="supabase.js"></script>
+<script>
+(function(){
+var C=window.TT_CONFIG,$=function(i){return document.getElementById(i)};
+if(!C||/YOUR-/.test(C.url)){$('app').innerHTML='<div class="panel"><h2>Setup needed</h2><p>Open config.js and paste your Supabase Project URL and anon key.</p></div>';return}
+var sb=supabase.createClient(C.url,C.key);
+var RL={master:'Master',circle:'Circle Incharge',division:'Division Incharge',supervisor:'Supervisor',technician:'Technician'},ROLES=Object.keys(RL);
+var ME=null,UI={tab:'',sel:'',q:''},watchId=null,pend=null,lastPt=null,lastT=0,V={};
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
+function fT(t){return new Date(t).toLocaleString([],{day:'numeric',month:'short',hour:'numeric',minute:'2-digit'})}
+function gl(p){return p&&p.lat!=null?'<a href="https://www.google.com/maps?q='+p.lat+','+p.lng+'" target="_blank" rel="noopener">'+p.lat.toFixed(5)+', '+p.lng.toFixed(5)+'</a>':'<span class="mut">No GPS</span>'}
+function nm(p){return p?esc(p.name)+' <span class="mut">'+esc(p.emp_id)+'</span>':'-'}
+function hms(ms){var s=Math.floor(ms/1000);return Math.floor(s/3600)+':'+String(Math.floor(s%3600/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
+function dist(a,b){var k=Math.PI/180,x=Math.sin((b.lat-a.lat)*k/2),y=Math.sin((b.lng-a.lng)*k/2);return 12742000*Math.asin(Math.sqrt(x*x+Math.cos(a.lat*k)*Math.cos(b.lat*k)*y*y))}
+function km(d){return d>=1000?(d/1000).toFixed(2)+' km':Math.round(d)+' m'}
+function sod(){var d=new Date();d.setHours(0,0,0,0);return d.toISOString()}
+function val(i){var e=$(i);return e?e.value.trim():''}
+function opt(a,sel){return a.map(function(x){return '<option value="'+esc(x[0])+'"'+(x[0]===sel?' selected':'')+'>'+esc(x[1])+'</option>'}).join('')}
+function csv(rows,cols){return [cols.map(function(c){return c[0]}).join(',')].concat(rows.map(function(r){return cols.map(function(c){var v=c[1](r);v=v==null?'':String(v);return '"'+v.replace(/"/g,'""')+'"'}).join(',')})).join('\r\n')}
+function dl(n,t){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+t],{type:'text/csv'}));a.download=n;a.click()}
+async function fn(b){var r=await sb.functions.invoke('admin',{body:b});if(r.error){var m=r.error.message;try{m=(await r.error.context.json()).error||m}catch(e){}throw new Error(m)}return r.data}
+function ck(r){if(r.error)throw new Error(r.error.message);return r.data}
+
+function getPos(){return new Promise(function(res){
+ if(!navigator.geolocation){res({err:'GPS not supported on this device.'});return}
+ navigator.geolocation.getCurrentPosition(function(p){res({lat:p.coords.latitude,lng:p.coords.longitude,acc:Math.round(p.coords.accuracy)})},
+ function(e){res({err:e.code===1?'Location permission denied. Allow location and retry.':'No GPS fix. Move to an open area and retry.'})},{enableHighAccuracy:true,timeout:12000,maximumAge:0})})}
+function stamp(file,type,t,pos){return new Promise(function(res){var img=new Image(),u=URL.createObjectURL(file);
+ img.onload=function(){var w=240,h=Math.round(img.height*w/img.width),c=document.createElement('canvas');c.width=w;c.height=h;var x=c.getContext('2d');x.drawImage(img,0,0,w,h);
+  x.fillStyle='rgba(0,0,0,.65)';x.fillRect(0,h-42,w,42);x.fillStyle='#fff';x.font='10px sans-serif';
+  x.fillText(ME.name+' ('+ME.emp_id+') Punch '+type,4,h-28);x.fillText(new Date(t).toLocaleString(),4,h-16);
+  x.fillText(pos.lat!=null?'Lat '+pos.lat.toFixed(5)+' Lng '+pos.lng.toFixed(5):'Location not available',4,h-4);
+  URL.revokeObjectURL(u);c.toBlob(function(b){res(b)},'image/jpeg',.5)};img.onerror=function(){res(null)};img.src=u})}
+
+function stopWatch(){if(watchId!==null&&navigator.geolocation)navigator.geolocation.clearWatch(watchId);watchId=null}
+function startWatch(){stopWatch();if(!ME||ME.role!=='technician'||!ME.inn||!navigator.geolocation)return;lastPt=null;lastT=0;
+ watchId=navigator.geolocation.watchPosition(function(p){var pt={lat:p.coords.latitude,lng:p.coords.longitude,acc:Math.round(p.coords.accuracy)},n=Date.now();
+  if(!lastPt||(n-lastT>20000&&(dist(lastPt,pt)>20||n-lastT>180000))){lastPt=pt;lastT=n;sb.from('trail').insert(pt).then(function(){})}},
+ function(){var g=$('gps');if(g){g.className='gps err';g.textContent='Location is off. Turn on GPS so your punches can be verified.'}},{enableHighAccuracy:true,maximumAge:5000,timeout:20000})}
+
+function loginView(msg){$('who').innerHTML='';$('app').innerHTML='<div class="panel" style="max-width:380px;margin:30px auto"><h2>Sign in</h2><div class="form" style="grid-template-columns:1fr"><input id="l-id" placeholder="Employee ID" autocomplete="username"><input id="l-pw" type="password" placeholder="Password" autocomplete="current-password"></div><p><button class="punch" style="font-size:22px;padding:12px" data-act="login">Sign in</button></p><div id="msg" class="err">'+esc(msg||'')+'</div></div>'}
+async function enter(){
+ var u=(await sb.auth.getUser()).data.user;if(!u)return loginView();
+ var r=await sb.from('profiles').select('*').eq('id',u.id).single();
+ if(r.error||!r.data||r.data.disabled){await sb.auth.signOut();return loginView('This account is not active.')}
+ ME=r.data;$('who').innerHTML='<span class="mut">'+esc(ME.name)+' - '+RL[ME.role]+'</span><button data-act="pw">Change password</button><button data-act="out">Sign out</button>';
+ if(ME.must_change)await changePw(true);
+ if(ME.role==='technician'){var p=await sb.rpc('my_punches',{n:1});ME.inn=!!(p.data&&p.data[0]&&p.data[0].type==='in');startWatch();UI.tab='punch'}else UI.tab='dash';
+ go()}
+async function changePw(force){var n=prompt(force?'Set a new password (min 6 characters)':'New password (min 6 characters)');if(!n)return;
+ var r=await sb.auth.updateUser({password:n});if(r.error){alert(r.error.message);return}await sb.rpc('clear_must_change');ME.must_change=false;alert('Password changed.')}
+var TABS={technician:[['punch','Punch'],['work','Work orders'],['leave','Leave']],mgr:[['dash','Dashboard'],['map','Live map'],['att','Attendance'],['leave','Leave'],['work','Work orders'],['team','Team'],['rep','Reports']]};
+async function go(t){if(t)UI.tab=t;var L=ME.role==='technician'?TABS.technician:TABS.mgr;
+ $('app').innerHTML='<nav role="tablist">'+L.map(function(x){return '<button role="tab" data-act="tab" data-t="'+x[0]+'" aria-selected="'+(UI.tab===x[0])+'">'+x[1]+'</button>'}).join('')+'</nav><div id="body">Loading…</div>';
+ try{await V[UI.tab]()}catch(e){$('body').innerHTML='<p class="err">'+esc(e.message)+'</p>'}}
+function techs(){return sb.from('profiles').select('*').eq('role','technician').eq('disabled',false).order('name').limit(1000).then(ck)}
+
+V.punch=async function(){
+ var h=ck(await sb.rpc('my_punches',{n:30})),l=h[0];ME.inn=!!l&&l.type==='in';startWatch();
+ $('body').innerHTML='<div class="panel"><h2>'+esc(ME.name)+'</h2><div class="grid">'+[['ID',ME.emp_id],['Circle',ME.circle],['Division',ME.division],['Subdivision',ME.sub],['Work area',ME.area]].map(function(k){return '<div class="kv"><b>'+k[0]+'</b>'+esc(k[1]||'-')+'</div>'}).join('')+'</div></div>'+
+ '<div class="panel"><div class="kv"><b>Status</b><span class="tag '+(ME.inn?'in':'out')+'">'+(ME.inn?'On duty since '+fT(l.t):'Off duty')+'</span></div><div class="big" id="clock">'+(ME.inn?hms(Date.now()-new Date(l.t)):'0:00:00')+'</div>'+
+ '<button class="punch'+(ME.inn?' out':'')+'" data-act="punch">'+(ME.inn?'Punch out with selfie':'Punch in with selfie')+'</button><div class="gps" id="gps">Camera opens for a selfie. Your location is recorded automatically for your supervisors.</div></div>'+
+ '<div class="panel"><h2>My punches</h2><table><thead><tr><th>Action</th><th>Time</th></tr></thead><tbody>'+h.map(function(p){return '<tr><td><span class="tag '+(p.type==='in'?'in':'out')+'">Punch '+p.type+'</span></td><td>'+fT(p.t)+'</td></tr>'}).join('')+'</tbody></table></div>';
+ ME.since=ME.inn?new Date(l.t).getTime():0};
+setInterval(function(){var c=$('clock');if(c&&ME&&ME.since)c.textContent=hms(Date.now()-ME.since)},1000);
+
+V.work=async function(){
+ var mgr=ME.role!=='technician',q=sb.from('work_orders').select('*,t:profiles!work_orders_assigned_to_fkey(name,emp_id)').order('created_at',{ascending:false}).limit(60);
+ var rows=ck(await q),h='';
+ if(mgr){var T=await techs();h+='<div class="panel"><h2>Assign work order</h2><div class="form"><select id="w-to">'+opt(T.map(function(t){return [t.id,t.name+' ('+t.emp_id+')']}))+'</select><input id="w-title" placeholder="Title"><input id="w-due" type="date"></div><textarea id="w-det" rows="2" placeholder="Details"></textarea><p><button data-act="wocreate">Assign</button> <span id="msg" class="err"></span></p></div>'}
+ h+='<div class="panel scroll"><h2>Work orders</h2><table><thead><tr><th>Title</th>'+(mgr?'<th>Technician</th>':'')+'<th>Due</th><th>Status</th><th>Note</th><th></th></tr></thead><tbody>'+rows.map(function(w){
+  var act=!mgr&&(w.status==='new'||w.status==='in_progress')?(w.status==='new'?'<button data-act="wo" data-id="'+w.id+'" data-s="in_progress">Start</button> ':'')+'<button data-act="wo" data-id="'+w.id+'" data-s="done">Mark done</button>':(mgr&&w.assigned_by===ME.id&&w.status!=='done'&&w.status!=='cancelled'?'<button data-act="wocancel" data-id="'+w.id+'">Cancel</button>':'');
+  return '<tr><td>'+esc(w.title)+'<div class="mut">'+esc(w.details||'')+'</div></td>'+(mgr?'<td>'+nm(w.t)+'</td>':'')+'<td>'+esc(w.due||'-')+'</td><td><span class="pill">'+w.status.replace('_',' ')+'</span></td><td>'+esc(w.note||'')+'</td><td>'+act+'</td></tr>'}).join('')+'</tbody></table>'+(rows.length?'':'<p class="mut">No work orders.</p>')+'</div>';
+ $('body').innerHTML=h};
+
+V.leave=async function(){
+ var mgr=ME.role!=='technician',rows=ck(await sb.from('leave_requests').select('*,t:profiles(name,emp_id)').order('created_at',{ascending:false}).limit(80)),h='';
+ if(!mgr)h+='<div class="panel"><h2>Request leave</h2><div class="form"><input id="lv-f" type="date"><input id="lv-t" type="date"><input id="lv-r" placeholder="Reason"></div><p><button data-act="leavereq">Send request</button> <span id="msg" class="err"></span></p></div>';
+ var ST={pending_supervisor:'Waiting for supervisor',pending_division:'Waiting for division incharge',approved:'Approved',rejected:'Rejected'};
+ h+='<div class="panel scroll"><h2>Leave requests</h2><table><thead><tr>'+(mgr?'<th>Technician</th>':'')+'<th>From</th><th>To</th><th>Reason</th><th>Status</th><th></th></tr></thead><tbody>'+rows.map(function(l){
+  var can=(l.status==='pending_supervisor'&&ME.role==='supervisor')||(l.status==='pending_division'&&ME.role==='division');
+  return '<tr>'+(mgr?'<td>'+nm(l.t)+'</td>':'')+'<td>'+l.from_date+'</td><td>'+l.to_date+'</td><td>'+esc(l.reason||'')+'</td><td><span class="pill">'+ST[l.status]+'</span></td><td>'+(can?'<button data-act="decide" data-id="'+l.id+'" data-a="1">Approve</button> <button data-act="decide" data-id="'+l.id+'" data-a="0">Reject</button>':'')+'</td></tr>'}).join('')+'</tbody></table>'+(rows.length?'':'<p class="mut">No requests.</p>')+'</div>';
+ $('body').innerHTML=h};
+
+V.dash=async function(){
+ var r=await Promise.all([techs(),sb.from('last_punch').select('*').limit(1000).then(ck),sb.from('latest_pos').select('*').limit(1000).then(ck)]),T=r[0],LP={},PS={};
+ r[1].forEach(function(x){LP[x.user_id]=x});r[2].forEach(function(x){PS[x.user_id]=x});
+ var q=UI.q.toLowerCase(),f=T.filter(function(t){return !q||(t.name+t.emp_id+(t.area||'')+(t.sub||'')+(t.division||'')).toLowerCase().indexOf(q)>=0}),on=f.filter(function(t){return LP[t.id]&&LP[t.id].type==='in'}).length;
+ $('body').innerHTML='<div class="grid"><div class="panel"><div class="stat">'+f.length+'</div>Technicians</div><div class="panel"><div class="stat in">'+on+'</div>On duty</div><div class="panel"><div class="stat out">'+(f.length-on)+'</div>Off duty</div></div>'+
+ '<div class="row"><input id="q" placeholder="Search name, ID, area, subdivision" value="'+esc(UI.q)+'"></div><div class="panel scroll"><h2>Technicians</h2><table><thead><tr><th>Name</th><th>ID</th><th>Circle</th><th>Division</th><th>Subdivision</th><th>Work area</th><th>Status</th><th>Last punch</th><th>Location</th><th></th></tr></thead><tbody>'+
+ (f.map(function(t){var l=LP[t.id],p=PS[t.id],i=l&&l.type==='in';return '<tr><td>'+esc(t.name)+'</td><td>'+esc(t.emp_id)+'</td><td>'+esc(t.circle)+'</td><td>'+esc(t.division)+'</td><td>'+esc(t.sub)+'</td><td>'+esc(t.area)+'</td><td><span class="tag '+(i?'in':'out')+'">'+(i?'On duty':'Off duty')+'</span></td><td>'+(l?fT(l.t):'-')+'</td><td>'+gl(p)+(p?' <span class="mut">'+fT(p.t)+'</span>':'')+'</td><td><button data-act="track" data-id="'+t.id+'">Track</button></td></tr>'}).join('')||'<tr><td colspan="10" class="mut">No technicians in your scope.</td></tr>')+'</tbody></table></div>';
+ var qi=$('q');qi.oninput=function(){UI.q=qi.value;clearTimeout(qi.t);qi.t=setTimeout(V.dash,350)}};
+
+function mapSVG(pts,one){
+ if(!pts.length)return '<svg viewBox="0 0 400 220"><text x="200" y="115" text-anchor="middle" fill="currentColor" opacity=".5" font-size="14">No GPS points</text></svg>';
+ var la=pts.map(function(p){return p.lat}),ln=pts.map(function(p){return p.lng}),a0=Math.min.apply(0,la),a1=Math.max.apply(0,la),n0=Math.min.apply(0,ln),n1=Math.max.apply(0,ln),
+ k=Math.cos((a0+a1)/2*Math.PI/180),w=Math.max((n1-n0)*k,1e-5),h=Math.max(a1-a0,1e-5),sc=Math.min(320/w,150/h),ox=200-w*sc/2,oy=110+h*sc/2,
+ X=function(p){return(ox+(p.lng-n0)*k*sc).toFixed(1)},Y=function(p){return(oy-(p.lat-a0)*sc).toFixed(1)},s='<svg viewBox="0 0 400 220" role="img" aria-label="GPS trace">';
+ if(one)s+='<path d="'+pts.map(function(p,i){return(i?'L':'M')+X(p)+' '+Y(p)}).join(' ')+'" fill="none" stroke="var(--teal)" stroke-width="3" stroke-linejoin="round"/><circle cx="'+X(pts[0])+'" cy="'+Y(pts[0])+'" r="7" fill="var(--in)"/><circle cx="'+X(pts[pts.length-1])+'" cy="'+Y(pts[pts.length-1])+'" r="7" fill="var(--out)"/>';
+ else pts.forEach(function(p){s+='<circle cx="'+X(p)+'" cy="'+Y(p)+'" r="6" fill="var(--teal)"/><text x="'+X(p)+'" y="'+(Y(p)-10)+'" text-anchor="middle" font-size="11" fill="currentColor">'+esc(p.tag||'')+'</text>'});
+ return s+'</svg>'}
+V.map=async function(){
+ var T=await techs(),pts,one=!!UI.sel,info='';
+ if(one){pts=ck(await sb.from('trail').select('lat,lng,t').eq('user_id',UI.sel).gte('t',sod()).order('t').limit(1000));var d=0;for(var i=1;i<pts.length;i++)d+=dist(pts[i-1],pts[i]);info=pts.length+' points today, '+km(d)+'. Green is start, red is latest. '+(pts.length?gl(pts[pts.length-1]):'')}
+ else{var ps=ck(await sb.from('latest_pos').select('*').limit(1000)),by={};T.forEach(function(t){by[t.id]=t.emp_id});pts=ps.map(function(p){return{lat:p.lat,lng:p.lng,tag:by[p.user_id]}});info=pts.length+' technicians with a known position.'}
+ $('body').innerHTML='<div class="panel"><h2>Live map</h2><div class="row"><select id="msel"><option value="">All technicians (latest position)</option>'+opt(T.map(function(t){return [t.id,t.name+' ('+t.emp_id+')']}),UI.sel)+'</select><button data-act="refresh">Refresh</button></div>'+mapSVG(pts,one)+'<div class="gps">'+info+'</div></div>';
+ $('msel').onchange=function(){UI.sel=this.value;V.map()}};
+
+V.att=async function(){
+ var rows=ck(await sb.from('punches').select('*,t2:profiles(name,emp_id)').order('t',{ascending:false}).limit(50)),paths=rows.filter(function(r){return r.selfie}).map(function(r){return r.selfie}),U={};
+ if(paths.length){var s=await sb.storage.from('selfies').createSignedUrls(paths,900);(s.data||[]).forEach(function(x){U[x.path]=x.signedUrl})}
+ $('body').innerHTML='<div class="panel scroll"><h2>Attendance with selfies</h2><table><thead><tr><th>Selfie</th><th>Technician</th><th>Action</th><th>Time</th><th>Lat, Long</th><th>Accuracy</th></tr></thead><tbody>'+rows.map(function(p){
+  return '<tr><td>'+(U[p.selfie]?'<img class="thumb" data-act="img" src="'+U[p.selfie]+'" alt="Selfie">':'<span class="mut">None</span>')+'</td><td>'+nm(p.t2)+'</td><td><span class="tag '+(p.type==='in'?'in':'out')+'">Punch '+p.type+'</span></td><td>'+fT(p.t)+'</td><td>'+gl(p)+'</td><td>'+(p.acc!=null?Math.round(p.acc)+' m':'-')+'</td></tr>'}).join('')+'</tbody></table></div>'};
+
+V.team=async function(){
+ var P=ck(await sb.from('profiles').select('*').order('role').order('name').limit(1000)),below=ROLES.slice(ROLES.indexOf(ME.role)+1);
+ $('body').innerHTML='<div class="panel scroll"><h2>People</h2><table><thead><tr><th>Name</th><th>ID</th><th>Role</th><th>Circle</th><th>Division</th><th>Subdivision</th><th></th></tr></thead><tbody>'+P.filter(function(p){return p.id!==ME.id}).map(function(p){
+  return '<tr><td>'+esc(p.name)+'</td><td>'+esc(p.emp_id)+'</td><td>'+RL[p.role]+'</td><td>'+esc(p.circle)+'</td><td>'+esc(p.division)+'</td><td>'+esc(p.sub)+'</td><td>'+(p.disabled?'<span class="mut">Disabled</span>':'<button data-act="reset" data-id="'+p.id+'">Reset password</button> <button data-act="dis" data-id="'+p.id+'">Disable</button>')+'</td></tr>'}).join('')+'</tbody></table></div>'+
+ '<div class="panel"><h2>Add a person</h2><div class="form"><input id="n-name" placeholder="Full name"><input id="n-id" placeholder="Employee ID"><input id="n-pw" type="password" placeholder="Initial password (min 6)"><select id="n-role">'+below.map(function(r){return '<option value="'+r+'">'+RL[r]+'</option>'}).join('')+'</select>'+
+ ['circle','division','sub'].map(function(k){return '<input id="n-'+k+'" placeholder="'+({circle:'Circle',division:'Division',sub:'Subdivision'})[k]+'" value="'+esc(ME[k]||'')+'"'+(ME[k]?' disabled':'')+'>'}).join('')+'<input id="n-area" placeholder="Work area (technicians)"></div><p><button data-act="adduser">Add person</button> <span id="msg" class="err"></span></p></div>'};
+
+V.rep=async function(){
+ var d=new Date(),m1=new Date(d.getFullYear(),d.getMonth(),1).toISOString().slice(0,10),t=d.toISOString().slice(0,10);
+ $('body').innerHTML='<div class="panel"><h2>Excel / CSV reports</h2><div class="form"><label>From<input id="r-f" type="date" value="'+m1+'"></label><label>To<input id="r-t" type="date" value="'+t+'"></label></div><p><button data-act="csvatt">Download attendance CSV</button> <button data-act="csvleave">Download leave CSV</button></p><div class="gps">Files open in Excel. Each report holds up to 1,000 rows. GPS and selfies are deleted after 30 days, attendance times are kept.</div><div id="msg" class="err"></div></div>'+
+ (ME.role==='master'?'<div class="panel"><h2>Storage cleanup</h2><p class="mut">Deletes selfie files older than 30 days to stay inside the free storage limit. Run weekly.</p><button data-act="cleanup">Delete old selfies now</button></div>':'')};
+
+document.addEventListener('click',async function(e){
+ var t=e.target.closest('[data-act]');if(!t)return;var a=t.dataset.act,id=t.dataset.id;
+ try{
+  if(a==='tab')go(t.dataset.t);
+  else if(a==='refresh')go();
+  else if(a==='track'){UI.sel=id;go('map')}
+  else if(a==='img'){$('mimg').src=t.src;$('modal').style.display='flex'}
+  else if(a==='login'){var r=await sb.auth.signInWithPassword({email:val('l-id').toLowerCase()+'@techtrack.app',password:$('l-pw').value});if(r.error)throw new Error('Wrong ID or password.');await enter()}
+  else if(a==='out'){stopWatch();await sb.auth.signOut();ME=null;loginView()}
+  else if(a==='pw')changePw();
+  else if(a==='punch'){pend=ME.inn?'out':'in';$('cam').value='';$('cam').click()}
+  else if(a==='wo'){var s=t.dataset.s,note=s==='done'?prompt('Note (optional)'):null,p={};if(s==='done')p=await getPos();
+   ck(await sb.rpc('update_work_order',{wid:+id,new_status:s,new_note:note||null,lat:p.lat==null?null:p.lat,lng:p.lng==null?null:p.lng}));go()}
+  else if(a==='wocreate'){if(!val('w-title'))throw new Error('Enter a title.');ck(await sb.from('work_orders').insert({assigned_to:val('w-to'),title:val('w-title'),details:val('w-det')||null,due:val('w-due')||null}));go()}
+  else if(a==='wocancel'){if(confirm('Cancel this work order?')){ck(await sb.from('work_orders').update({status:'cancelled'}).eq('id',+id));go()}}
+  else if(a==='leavereq'){if(!val('lv-f')||!val('lv-t'))throw new Error('Choose both dates.');ck(await sb.from('leave_requests').insert({from_date:val('lv-f'),to_date:val('lv-t'),reason:val('lv-r')||null}));go()}
+  else if(a==='decide'){ck(await sb.rpc('decide_leave',{lid:+id,approve:t.dataset.a==='1'}));go()}
+  else if(a==='adduser'){await fn({action:'create',name:val('n-name'),emp_id:val('n-id'),password:val('n-pw'),role:val('n-role'),circle:val('n-circle'),division:val('n-division'),sub:val('n-sub'),area:val('n-area')});go()}
+  else if(a==='reset'){var pw=prompt('New password (min 6 characters)');if(pw){await fn({action:'reset',id:id,password:pw});alert('Password reset. The person must change it at next sign in.')}}
+  else if(a==='dis'){if(confirm('Disable this person? They will no longer be able to sign in.')){ck(await sb.rpc('set_disabled',{uid:id,flag:true}));go()}}
+  else if(a==='csvatt'){var f=new Date(val('r-f')+'T00:00:00').toISOString(),to=new Date(val('r-t')+'T23:59:59').toISOString();
+   var rows=ck(await sb.from('punches').select('type,t,lat,lng,x:profiles(emp_id,name,circle,division,sub)').gte('t',f).lte('t',to).order('t').limit(1000));
+   dl('attendance.csv',csv(rows,[['Employee ID',function(r){return r.x.emp_id}],['Name',function(r){return r.x.name}],['Circle',function(r){return r.x.circle}],['Division',function(r){return r.x.division}],['Subdivision',function(r){return r.x.sub}],['Action',function(r){return 'Punch '+r.type}],['Date',function(r){return new Date(r.t).toLocaleDateString()}],['Time',function(r){return new Date(r.t).toLocaleTimeString()}],['Latitude',function(r){return r.lat}],['Longitude',function(r){return r.lng}]]))}
+  else if(a==='csvleave'){var rows2=ck(await sb.from('leave_requests').select('from_date,to_date,reason,status,x:profiles(emp_id,name,sub)').gte('from_date',val('r-f')).lte('from_date',val('r-t')).limit(1000));
+   dl('leave.csv',csv(rows2,[['Employee ID',function(r){return r.x.emp_id}],['Name',function(r){return r.x.name}],['Subdivision',function(r){return r.x.sub}],['From',function(r){return r.from_date}],['To',function(r){return r.to_date}],['Reason',function(r){return r.reason}],['Status',function(r){return r.status}]]))}
+  else if(a==='cleanup'){var c=await fn({action:'cleanup'});alert(c.deleted+' old selfie files deleted.')}
+ }catch(err){var m=$('msg');if(m)m.textContent=err.message;else alert(err.message)}});
+$('modal').onclick=function(){this.style.display='none'};
+document.addEventListener('keydown',function(e){if(e.key==='Enter'&&e.target.id==='l-pw')document.querySelector('[data-act=login]').click()});
+$('cam').onchange=async function(){
+ var file=this.files&&this.files[0];if(!file||!pend)return;var type=pend,b=document.querySelector('.punch'),g=$('gps');if(b)b.disabled=true;g.className='gps';g.textContent='Getting location…';
+ try{var pos=await getPos(),t=Date.now();if(pos.err){g.className='gps err';g.textContent=pos.err+' Punch will be saved without GPS.'}
+  var blob=await stamp(file,type,t,pos);if(!blob)throw new Error('Could not read the photo. Try again.');
+  var path=ME.id+'/'+t+'.jpg',up=await sb.storage.from('selfies').upload(path,blob,{contentType:'image/jpeg'});if(up.error)throw new Error(up.error.message);
+  ck(await sb.from('punches').insert({type:type,lat:pos.lat==null?null:pos.lat,lng:pos.lng==null?null:pos.lng,acc:pos.acc==null?null:pos.acc,selfie:path}));
+  pend=null;ME.inn=type==='in';startWatch();go()
+ }catch(err){g.className='gps err';g.textContent=err.message;if(b)b.disabled=false}};
+sb.auth.getSession().then(function(r){if(r.data.session)enter();else loginView()});
+})();
+</script></body></html>
